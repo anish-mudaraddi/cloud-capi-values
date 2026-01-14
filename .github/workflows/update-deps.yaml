@@ -17,6 +17,13 @@ jobs:
 
     steps:
 
+    - name: "Setup Github Token"
+      uses: actions/create-github-app-token@v2
+      id: app-token
+      with:
+        app-id: ${{ vars.APP_ID }}
+        private-key: ${{ secrets.PRIVATE_KEY }}    
+
     - name: Checkout 
       uses: actions/checkout@v6
 
@@ -29,21 +36,27 @@ jobs:
 
     # TODO: once azimuth-cloud/capi-helm-charts provides their own pinned k-orc installation method, we pick up the latest version  
     - name: "Get latest Openstack Resource Controller (K-orc) version"
-      id: k-orc
+      id: get-k-orc-version
       uses: pozetroninc/github-action-get-latest-release@master
       with:
         repository: k-orc/openstack-resource-controller
         excludes: prerelease, draft
+        token: "${{ steps.app-token.outputs.token }}"
+
+    - name: Remove starting "v" for K-orc version
+      id: k-orc
+      run: |
+        TAG=${{ steps.get-k-orc-version.outputs.release }}
+        echo "release=${TAG#v}" >> $GITHUB_OUTPUT
 
     - name: "Update dependencies.yaml"
       id: append-version
       run: |
-        yq -i -y '.["cluster-chart"] = "${{ steps.capi-helm-chart.outputs.version }}"' dependencies.yaml
-        yq -i -y '.["k-orc"] = "${{ steps.k-orc.outputs.release }}"' dependencies.yaml
+        yq e -i '.["cluster-chart"] = "${{ steps.capi-helm-chart.outputs.version }}"' dependencies.yaml
+        yq e -i '.["k-orc"] = "${{ steps.k-orc.outputs.release }}"' dependencies.yaml
 
 
     - name: "Create Pull Request for updating dependencies if changed"
-      if: ${{ steps.check-changes.outputs.changed }}
       id: make-pr
       uses: peter-evans/create-pull-request@v8
       env:
