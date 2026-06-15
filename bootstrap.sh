@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash 
+
+# foo
 set -euo pipefail
 
 echo "Updating system to apply latest security patches..."
